@@ -2,38 +2,102 @@ import numpy as np
 import pickle
 from abstracthm.utils import *
 
+## subwave class
+class Subwave:
+    """Container for emulator(s) and corresponding obervation(s): each subwave will generate an implausibility score"""
+    def __init__(self, emul, z, v, name="subwave"):
+        self.emul, self.z, self.v, self.name = emul, z, v, name
+        self.pmean, self.pvar = None, None
+        self.simImp()
+
+    def calcImp(self, TESTS, chunkSize=5000):
+        P = TESTS.shape[0]
+        self.pmean, self.pvar = np.zeros([P]), np.zeros([P])
+
+        chunkNum = int(np.ceil(P / chunkSize)) if P > chunkSize else 1
+        prefix = '  ' + self.name + ' progress:'
+        printProgBar(0, chunkNum, prefix = prefix, suffix = '')
+        for c in range(chunkNum):
+            L, U = c*chunkSize, (c+1)*chunkSize if c < chunkNum -1 else P
+            self.pmean[L:U], self.pvar[L:U] = self.emul.posterior(TESTS[L:U])
+            printProgBar((c+1), chunkNum, prefix = prefix, suffix = '')
+
+        I = np.sqrt( ( self.pmean - self.z )**2 / ( self.pvar + self.v ) )
+        return I
+
+    def simImp(self):
+        X, Y = self.emul.data()
+        self.Isim = np.sqrt( ( Y[:,0] - self.z )**2 / ( self.v ) )
+        
+
+# multivar class for multivariate implausibility from univariate emulators in subwave
+class Multivar:
+    """Container for subwaves that will return a multivariate implausibility"""
+    def __init__(self, subwaves, covar):
+        self.subwaves, self.covar = subwaves, covar
+        self.simImp()
+
+    def calcImp(self, TESTS):
+        P = TESTS.shape[0]
+
+        pmean = np.hstack((s.pmean[:,None] for s in self.subwaves))
+        pvar  = np.hstack((s.pvar[:,None]  for s in self.subwaves))
+        zs = np.array([s.z for s in self.subwaves])
+
+        print("= Calculating multivariate implausibility of", P, "points =")
+        mI = np.zeros(P, dtype=np.float16)
+        for p in range(P):
+            diff = zs - pmean[p]
+            var  = self.covar + np.diag(pvar[p])
+            mI[p] = np.sqrt( (diff.T).dot(np.linalg.solve(var,diff)) )
+        
+        return mI
+
+    def simImp(self):
+
+        X, Y = self.subwaves[0].emul.data()
+        mI = np.zeros(X.shape[0])
+        zs = np.array([s.z for s in self.subwaves])
+        ys = np.hstack([s.emul.data()[1] for s in self.subwaves])
+
+        ## calculate multivariate implausibility
+        print("= Calculating multivariate implausibility of simulation points =")
+        P = X.shape[0]
+        mIsim = np.zeros(P)
+        for p in range(P):
+            diff = zs - ys[p]
+            var  = self.covar
+            mIsim[p] = np.sqrt( (diff.T).dot(np.linalg.solve(var,diff)) )
+         
+        self.Isim = mIsim
+
+
 ## wave class
 class Wave:
     """Stores data for wave of HM search."""
-    def __init__(self, emuls, zs, cm, var, cmv=None, covar=None, tests=[]):
+    def __init__(self, subwaves, cm, multivar=None, cmv=None, tests=[]):
         ## passed in
         print("█ NOTE: Data points should be in same order (not shuffled) for all emulators")
-        self.emuls = emuls
-        self.zs, self.var, self.cm = zs, var, cm
-        self.covar = covar
-        self.cmv = cmv
-        if self.cm < 2.0:
-            print("ERROR: cutoff cannot be less than 2.0 (should start/stay at 3.0)"); exit()
-        if self.cmv is not None:
-            print("█ NOTE: multivariate imp cutoff (cmv) should be selected from appropiate percentile of chi-sq table with", len(zs), "degrees of freedom")
-        elif self.covar is not None:
-            print("ERROR: multivariate imp cutoff (cmv) must be provided if covar is provided"); exit()
-        self.I = []
-        self.doneImp = False
-        if tests is not []:
-            self.setTests(tests)
+        self.subwaves = subwaves
+        self.multivar = multivar
 
-        self.NIMP = []  # for storing indices of TESTS with Im < cm 
-        self.NIMPminmax = {}
-        self.NROY = []  # create a design to fill NROY space based of found NIMP points
-        self.NROYminmax = {}
-        self.NROY_I = [] # for storing NROY implausibility
+        self.cm, self.cmv = cm, cmv
+        self.I, self.mI = None, None
+
+        if isinstance(tests, np.ndarray) and tests is not []:
+            self.TESTS = tests.astype(np.float16)
+            self.I  = np.zeros((self.TESTS.shape[0],len(self.subwaves)), dtype=np.float16)
+        else: print("ERROR: tests must be a numpy array")
+
+        self.NIMP = None  # for storing indices of TESTS with Im < cm 
+        self.NROY = None  # create a design to fill NROY space based of found NIMP points
+        self.NROY_I = None # for storing NROY implausibility
 
 
     ## pickle a list of relevant data
     def save(self, filename):
         print("= Pickling wave data in", filename, "=")
-        w = [ self.TESTS, self.I, self.NIMP, self.NIMPminmax, self.doneImp, self.NROY, self.NROYminmax, self.NROY_I, self.mI ]
+        w = [ self.TESTS, self.I, self.NIMP, self.NROY, self.NROY_I, self.mI ]
         with open(filename, 'wb') as output:
             pickle.dump(w, output, pickle.HIGHEST_PROTOCOL)
         return
@@ -43,85 +107,40 @@ class Wave:
         print("= Unpickling wave data in", filename, "=")
         with open(filename, 'rb') as input:
             w = pickle.load(input)
-        self.TESTS, self.I, self.NIMP, self.NIMPminmax, self.doneImp, self.NROY, self.NROYminmax, self.NROY_I, self.mI = [i for i in w]
+        self.TESTS, self.I, self.NIMP, self.NROY, self.NROY_I, self.mI = [i for i in w]
         return
-
-    ## set the test data
-    def setTests(self, tests):
-        if isinstance(tests, np.ndarray):
-            self.TESTS = tests.astype(np.float16)
-            self.I  = np.zeros((self.TESTS.shape[0],len(self.emuls)) )#,dtype=np.float16)
-            self.mI = np.zeros((self.TESTS.shape[0]) ) if self.covar is not None else None
-        else:
-            print("ERROR: tests must be a numpy array")
-        return
-
 
     ## search through the test inputs to find non-implausible points
     def calcImp(self, chunkSize=5000):
-        P = self.TESTS[:,0].size
+        P = self.TESTS.shape[0]
+        chunkNum = int(np.ceil(P / chunkSize)) if P > chunkSize else 1
         print("= Calculating Implausibilities of", P, "points =")
-        if P > chunkSize:
-            chunkNum = int(np.ceil(P / chunkSize))
-            print("  Using", chunkNum, "chunks of", chunkSize, "=")
-        else:
-            chunkNum = 1
+        print("  Using", chunkNum, "chunks of", chunkSize, "=")
 
-        pmean = np.zeros((self.TESTS.shape[0],len(self.emuls)) )#,dtype=np.float16)
-        pvar  = np.zeros((self.TESTS.shape[0],len(self.emuls)) )#,dtype=np.float16)
+        for o, s in enumerate(self.subwaves):
+            self.I[:,o] = s.calcImp(self.TESTS, chunkSize = chunkSize)
 
-        ## loop over outputs (i.e. over emulators)
-        printProgBar(0, len(self.emuls)*chunkNum, prefix = '  Progress:', suffix = '')
-        for o in range(len(self.emuls)):
-            E, z, v = self.emuls[o], self.zs[o], self.var[o]
-
-            for c in range(chunkNum):
-                L = c*chunkSize
-                U = (c+1)*chunkSize if c < chunkNum -1 else P
-                pm, pv = E.posterior(self.TESTS[L:U])
-                pmean[L:U,o] = pm
-                pvar[L:U,o]  = pv
-                #self.I[L:U,o] = np.sqrt( ( pmean - z )**2 / ( pvar + v ) )
-                self.I[L:U,o] = np.sqrt( ( pm - z )**2 / ( pv + v ) )
-                printProgBar((o*chunkNum+c+1), len(self.emuls)*chunkNum,
-                              prefix = '  Progress:', suffix = '')
-
-        ## calculate multivariate implausibility
-        if self.covar is not None:
-            print("= Calculating multivariate implausibility of", P, "points =")
-            #self.mI = np.zeros(P)
-            for p in range(P):
-                diff = self.zs - pmean[p]
-                var  = self.covar + np.diag(pvar[p])
-                self.mI[p] = np.sqrt( (diff.T).dot(np.linalg.solve(var,diff)) )
+        # calculate multivariate implausibility of collection of univariate emulators
+        if self.multivar is not None:
+            self.mI = self.multivar.calcImp(self.TESTS)
 
         self.doneImp = True
         return
 
     ## search through the test inputs to find non-implausible points
-    def simImp(self):
+    def simImp(self, maxno=1):
         print("  Calculating Implausibilities of simulation points")
 
-        X, Y = self.emuls[0].data() # FIXME: assumes all emuls built with same data
-        Isim = np.zeros([X.shape[0], len(self.emuls)])
+        # FIXME: assumes all emuls built with same inputs in same order data
+        X = self.subwaves[0].emul.data()[0]
 
-        ## loop over outputs (i.e. over emulators)
-        for o in range(len(self.emuls)):
-            E, z, v = self.emuls[o], self.zs[o], self.var[o]
-            X, Y = E.data()
-            pmean = Y[0]
-            Isim[:,o] = np.sqrt( ( pmean - z )**2 / ( v ) )
-        
-        ## calculate multivariate implausibility
-        mIsim = []
-        if self.covar is not None:
-            print("= Calculating multivariate implausibility of simulation points =")
-            P = X.shape[0]
-            mIsim = np.zeros(P)
-            for p in range(P):
-                diff = self.zs - np.array([E.data()[1][p] for E in self.emuls])
-                var  = self.covar
-                mIsim[p] = np.sqrt( (diff.T).dot(np.linalg.solve(var,diff)) )
+        Isim = np.zeros([X.shape[0], len(self.subwaves)])
+        for o, s in enumerate(self.subwaves):
+            Isim[:,o] = self.subwaves[0].Isim
+
+        # FIXME: multivar implementation makes some assumption that all emuls build with same inputs in same order data
+        if self.multivar is not None:
+            mIsim = self.multivar.Isim
  
         return X, Isim, mIsim
 
@@ -140,17 +159,17 @@ class Wave:
     ## find all the non-implausible points in the test points
     def findNIMP(self, maxno=1):
 
-        if self.doneImp == False:
+        if self.I is None:
             print("ERROR: implausibilities must first be calculated with calcImp()")
             return
 
-        P = self.TESTS[:,0].size
+        P = self.TESTS.shape[0]
         ## find maximum implausibility across different outputs
         print("  Determining", maxno, "max'th implausibility...")
         Imaxes = np.partition(self.I, -maxno)[:,-maxno]
 
         ## check cut-off, store indices of points matching condition
-        if self.covar is None:
+        if self.multivar is None:
             self.NIMP = np.argwhere(Imaxes < self.cm)[:,0]
         else:
             self.NIMP = np.argwhere((Imaxes < self.cm) & (self.mI < self.cmv))[:,0]
@@ -158,37 +177,33 @@ class Wave:
         percent = ("{0:3.2f}").format(100*float(len(self.NIMP))/float(P))
         print("  NIMP fraction:", percent, "%  (", len(self.NIMP), "points )" )
 
-        ## store minmax of NIMP points along each dimension
-        if self.NIMP.shape[0] > 0:
-            for i in range(self.TESTS.shape[1]):
-                NIMPmin = np.amin(self.TESTS[self.NIMP,i])
-                NIMPmax = np.amax(self.TESTS[self.NIMP,i])
-                self.NIMPminmax[i] = [NIMPmin, NIMPmax]
-        else:
-            print("  No points in NIMP, set NIMPminmax to [None, None]")
-            for i in range(self.TESTS.shape[1]):
-                self.NIMPminmax[i] = [None, None]
-        #print("  NIMPminmax:", self.NIMPminmax)
+        if self.NIMP.shape[0] == 0: self.NIMP = None
 
-        return 100*float(len(self.NIMP))/float(P)
 
     ## fill out NROY space to use as tests for next wave
     def findNROY(self, howMany, maxno=1, factor = 0.1, chunkSize=5000, restart=False):
 
+        if self.NIMP is None:
+            print("  Cannot calculate NROY from zero non-implauisible test points")
+            return
+
         ## reset if requested
         if restart == True:
             print("= Setting NROY blank, start from NIMP points")
-            self.NROY, self.NROY_I = [], []
-
-        if len(self.NROY) == 0:
+            self.NROY, self.NROY_I = None, None
+ 
+        if self.NROY is None:
             # initially, add NIMP to NROY
-            self.NROY = self.TESTS[self.NIMP]
-            self.NROY_I = self.I[self.NIMP]
-            self.NROYminmax = self.NIMPminmax
+            self.NROY, self.NROY_I = self.TESTS[self.NIMP], self.I[self.NIMP]
             print("= Creating", howMany, "NROY cloud from", self.NIMP.size , "NIMP points =")
         else:
             # if we're recalling this routine, begin with known NROY point
             print("= Creating", howMany, "NROY cloud from", self.NROY.shape[0], "NROY points =")
+
+        ## store minmax of NIMP points along each dimension
+        NROYminmax = {}
+        for i in range(self.TESTS.shape[1]):
+            NROYminmax[i] = [np.amin(self.TESTS[self.NIMP,i]), np.amax(self.TESTS[self.NIMP,i])]
 
         ## exit if condition already satisfied
         if howMany <= self.NROY.shape[0]:
@@ -201,7 +216,7 @@ class Wave:
         while self.NROY.shape[0] < howMany:
         
             # now LOC and dic can just use NROY in all cases
-            LOC, dic = self.NROY, self.NROYminmax
+            LOC, dic = self.NROY, NROYminmax
 
             ## scale factor for normal distribution
             SCALE = np.array( [dic[mm][1]-dic[mm][0] for mm in dic] )
@@ -262,9 +277,7 @@ class Wave:
 
             ## store minmax of NROY points along each dimension
             for i in range(self.NROY.shape[1]):
-                NROYmin = np.amin(self.NROY[:,i])
-                NROYmax = np.amax(self.NROY[:,i])
-                self.NROYminmax[i] = [NROYmin, NROYmax]
+                NROYminmax[i] = [np.amin(self.NROY[:,i]), np.amax(self.NROY[:,i])]
 
             ## hack part 2 - reset these variables back to normal
             [self.TESTS, self.I, self.NIMP, self.NIMPminmax] = TEMP

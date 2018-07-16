@@ -36,8 +36,8 @@ def plotImp(wave, maxno=1, grid=10, filename="hexbin.pkl", points=[], odp=True, 
  
     ## make list of all the active indices across all emulators
     active = []
-    for e in wave.emuls:
-        for a in e.active():
+    for s in wave.subwaves:
+        for a in s.emul.active():
             if a not in active: active.append(a)
     active.sort()
     print("  Active features:", active)

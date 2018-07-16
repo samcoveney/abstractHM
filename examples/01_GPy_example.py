@@ -26,7 +26,9 @@ print(model)
 
 # pass the model to the class wrapper for GPy
 # -------------------------------------------
+import copy
 E = ahm.GPyEmulator(model)
+E2 = copy.deepcopy(E)
 testX = np.array([[0.5, 0.25]])
 print(E.posterior(testX))
 x, y = E.data()
@@ -49,11 +51,18 @@ LOAD = False
 emuls = [ ]
 emuls.append(E)
 
+# subwave
+subwave1 = ahm.Subwave(E, zs[0], vs[0], name="sim(x)")
+print(subwave1.name)
+subwave2 = ahm.Subwave(E, zs[0], vs[0], name="sim(x) copy")
+print(subwave2.name)
+MW = ahm.Multivar(subwaves=[subwave1, subwave2], covar=np.array([[vs[0],0],[0,vs[0]]]))
+
 # some test points
 NUM = 50000
 tests = np.random.randn(NUM*2).reshape([NUM,2])
 
-W = ahm.Wave(emuls=emuls, zs=zs, cm=cutoff, var=vs, tests=tests)
+W = ahm.Wave(subwaves = [subwave1, subwave2], cm=cutoff, multivar=MW, cmv=9.210, tests=tests)
 
 if not(LOAD):
     W.calcImp(chunkSize=5000)
@@ -73,12 +82,12 @@ if not(LOAD):
 else:
     W.load("wave"+str(waveno)+nametag+".pkl")
 
-model.plot()
-plt.scatter( W.NROY[:,0], W.NROY[:,1] )
-plt.show()
+#model.plot()
+#plt.scatter( W.NROY[:,0], W.NROY[:,1] )
+#plt.show()
 
 MINMAXwave1 = emuls[0].minmax()
 
-ahm.plotImp(W, grid=30, maxno=maxno, NROY=False, NIMP=True, manualRange=MINMAXwave1, vmin=1.0, sims=False, odp=True)
-#ahm.plotImp(W, grid=30, maxno=maxno, NROY=True, NIMP=False, manualRange=MINMAXwave1, vmin=1.0, sims=True, odp=True)
+#ahm.plotImp(W, grid=30, maxno=maxno, NROY=False, NIMP=True, manualRange=MINMAXwave1, vmin=1.0, sims=False, odp=True)
+ahm.plotImp(W, grid=30, maxno=maxno, NROY=True, NIMP=False, manualRange=MINMAXwave1, vmin=1.0, sims=True, odp=True)
 
