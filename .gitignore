@@ -102,3 +102,10 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# files produced by examples
+*.pkl
+
+# swap files
+*.swp
+*.swo

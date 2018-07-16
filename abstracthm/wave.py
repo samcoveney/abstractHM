@@ -1,16 +1,6 @@
 import numpy as np
 import pickle
-
-## progress bar
-def printProgBar (iteration, total, prefix = '', suffix = '', decimals = 0, length = 20, fill = '#'):
-    percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
-    filledLength = int(length * iteration // total)
-    bar = fill * filledLength + '-' * (length - filledLength)
-
-    print('\r%s |%s| %s%% %s' % (prefix, bar, percent, suffix), end = '\r')
-    # Print New Line on Complete
-    if iteration == total: 
-        print()
+from abstracthm.utils import *
 
 ## wave class
 class Wave:
@@ -109,21 +99,17 @@ class Wave:
         return
 
     ## search through the test inputs to find non-implausible points
-    def simImp(self, data = None):
+    def simImp(self):
         print("  Calculating Implausibilities of simulation points")
-        if data is None:
-            print("  (Using simulation data from these emulators)")
-            X = self.scale(self.emuls[0].Data.xAll, prnt=False)
-        else:
-            print("  (Using provided simulation data = [inputs, outputs])")
-            X = data[0]
 
+        X, Y = self.emuls[0].data() # FIXME: assumes all emuls built with same data
         Isim = np.zeros([X.shape[0], len(self.emuls)])
 
         ## loop over outputs (i.e. over emulators)
         for o in range(len(self.emuls)):
             E, z, v = self.emuls[o], self.zs[o], self.var[o]
-            pmean = E.Data.yT if data is None else data[1][:,o]
+            X, Y = E.data()
+            pmean = Y[0]
             Isim[:,o] = np.sqrt( ( pmean - z )**2 / ( v ) )
         
         ## calculate multivariate implausibility
@@ -133,10 +119,7 @@ class Wave:
             P = X.shape[0]
             mIsim = np.zeros(P)
             for p in range(P):
-                if data is None:
-                    diff = self.zs - np.array([E.Data.yT[p] for E in self.emuls])
-                else:
-                    diff = self.zs - data[1][p]
+                diff = self.zs - np.array([E.data()[1][p] for E in self.emuls])
                 var  = self.covar
                 mIsim[p] = np.sqrt( (diff.T).dot(np.linalg.solve(var,diff)) )
  
@@ -286,38 +269,3 @@ class Wave:
             ## hack part 2 - reset these variables back to normal
             [self.TESTS, self.I, self.NIMP, self.NIMPminmax] = TEMP
 
-    ## help function for scaling/unscaling
-    def _helper_scale(self, points, mode, prnt):
-
-        minmax = self.emuls[0].minmax() # use minmax of first emulator for scaling
-
-        if isinstance(points, dict): # IF DICTIONARY IS SUPPLIED
-            tempPoints, LEN, DIC = {}, len(points), True
-        else: # IF ARRAY IS SUPPLIED
-            tempPoints, LEN, DIC = np.empty(points.shape), points.shape[1], False
-
-        # test enough points are given
-        if LEN != self.TESTS.shape[1]:
-            print("ERROR: features of suppled points and TEST inputs don't match"); exit()
-            
-        if mode == 'scale':
-            if prnt: print("= Scaling points into scaled units =")
-            for i in range(LEN):
-                if DIC: tempPoints[i]   = [ (points[i][0] - minmax[i][0]) / (minmax[i][1] - minmax[i][0]) , (points[i][1] - minmax[i][0]) / (minmax[i][1] - minmax[i][0]) ]
-                else:   tempPoints[:,i] =   (points[:,i]  - minmax[i][0]) / (minmax[i][1] - minmax[i][0]) 
-
-        if mode == 'unscale':
-            if prnt: print("= Unscaling points into original units =")
-            for i in range(LEN):
-                if DIC: tempPoints[i]   = [ minmax[i][0] + points[i][0] * (minmax[i][1] - minmax[i][0]) , minmax[i][0] + points[i][1] * (minmax[i][1] - minmax[i][0]) ]
-                else:   tempPoints[:,i] =   minmax[i][0] + points[:,i]  * (minmax[i][1] - minmax[i][0])
-        
-        return tempPoints
-
-    ## return supplied points in original units
-    def unscale(self, points, prnt=True):
-        return self._helper_scale(points, mode='unscale', prnt=prnt) 
-
-    ## return supplied points in scaled units
-    def scale(self, points, prnt=True):
-        return self._helper_scale(points, mode='scale', prnt=prnt) 

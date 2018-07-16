@@ -2,17 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import pickle
+from abstracthm.utils import *
 
-## progress bar
-def printProgBar (iteration, total, prefix = '', suffix = '', decimals = 0, length = 20, fill = '#'):
-    percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
-    filledLength = int(length * iteration // total)
-    bar = fill * filledLength + '-' * (length - filledLength)
-
-    print('\r%s |%s| %s%% %s' % (prefix, bar, percent, suffix), end = '\r')
-    # Print New Line on Complete
-    if iteration == total: 
-        print()
 
 ## colormaps
 def myGrey():
@@ -25,12 +16,12 @@ def colormap(cmap, b, t, mode="imp"):
     cm = cmap( cb )
     #cm[0:50,3] = np.linspace(0.80,1.0,50) # adjust alphas (transparencies)
     new_cmap = colors.LinearSegmentedColormap.from_list('trunc({n},{a:.2f},{b:.2f})'.format(n=cmap.name, a=b, b=t), cm )
-    #new_cmap.set_under(color=myGrey())    
-    if mode == "imp": new_cmap.set_over(color="black")    
+    #new_cmap.set_under(color=myGrey())
+    print(new_cmap)
     return new_cmap
 
 ## implausibility and optical depth plots for all pairs of active indices
-def plotImp(wave, maxno=1, grid=10, filename="hexbin.pkl", points=[], odp=True, sims=False, replot=False, colorbar=True, activeId = [], NROY=False, NIMP=True, manualRange={}, vmin=0.0, vmax=None):
+def plotImp(wave, maxno=1, grid=10, filename="hexbin.pkl", points=[], odp=True, sims=False, replot=False, colorbar=True, activeId = [], NROY=False, NIMP=True, manualRange={}, vmin=1.0, vmax=None):
 
     print("= Creating History Matching plots =")
 
@@ -102,15 +93,6 @@ def plotImp(wave, maxno=1, grid=10, filename="hexbin.pkl", points=[], odp=True, 
         print("  Making subplots of paired indices...")
         printProgBar(0, len(gSets), prefix = '  Progress:', suffix = '')
         for i, s in enumerate(gSets):
-            # FIXME: extent methods need to work for the new emulator object
-            ex = ( 0,1,0,1 ) # extent for hexplot binning
-            # manualRange for axis range of hexplot
-            if manualRange == {}:
-                exPlt = ( 0,1,0,1 )
-            else:
-                smR = wave.scale(manualRange, prnt=False)  # scales manualRange (unscaled) into scaled units for this wave
-                exPlt = ( smR[s[0]][0], smR[s[0]][1], smR[s[1]][0], smR[s[1]][1] )
-                #print("  axis extents x:", '{:0.3f}'.format(exPlt[0]), "->", '{:0.3f}'.format(exPlt[1]), "y:", '{:0.3f}'.format(exPlt[2]), "->", '{:0.3f}'.format(exPlt[3]))
 
             # reference correct subplot
             impPlot, odpPlot = ax[pltRef[s[1]],pltRef[s[0]]], ax[pltRef[s[0]],pltRef[s[1]]]
@@ -122,9 +104,10 @@ def plotImp(wave, maxno=1, grid=10, filename="hexbin.pkl", points=[], odp=True, 
             # FIXME: extent keyword here needs to be generalized
             im_imp = impPlot.hexbin(
               T[:,s[0]], T[:,s[1]], C = Imaxes,
-              #gridsize=grid, cmap=colormap(plt.get_cmap('nipy_spectral'),0.60,0.825), vmin=vmin, vmax=wave.cm if vmax is None else vmax,
-              gridsize=grid, cmap=colormap(plt.get_cmap('hot'),1.0,0.0), vmin=vmin, vmax=wave.cm if vmax is None else vmax,
-              extent=( 0,1,0,1 ), linewidths=0.2, mincnt=1, reduce_C_function=np.min)
+              gridsize=grid, cmap=colormap(plt.get_cmap('nipy_spectral'),0.60,0.825), vmin=vmin, vmax=wave.cm if vmax is None else vmax,
+              #gridsize=grid, cmap=colormap(plt.get_cmap('hot'),1.0,0.0), vmin=vmin, vmax=wave.cm if vmax is None else vmax,
+              #extent=( 0,1,0,1 ),
+              linewidths=0.2, mincnt=1, reduce_C_function=np.min)
             if colorbar: plt.colorbar(im_imp, ax=impPlot); 
 
             # odp subplot - bin points if Imax < cutoff, 'reduce' function is np.mean() - result gives fraciton of points satisfying Imax < cutoff
@@ -136,12 +119,13 @@ def plotImp(wave, maxno=1, grid=10, filename="hexbin.pkl", points=[], odp=True, 
                 im_odp = odpPlot.hexbin(
                   T[:,s[0]], T[:,s[1]], C = Imaxes<wave.cm,
                   gridsize=grid, cmap=colormap(plt.get_cmap('gist_stern'),1.0,0.25, mode="odp"), vmin=0.0, vmax=None, # vmin = 0.00000001, vmax=None,
-                  extent=( 0,1,0,1 ), linewidths=0.2, mincnt=1)
+                  #extent=( 0,1,0,1 ),
+                  linewidths=0.2, mincnt=1)
             if colorbar and (odp or sims): plt.colorbar(im_odp, ax=odpPlot)
 
             # force equal axes
-            impPlot.set_xlim(exPlt[0], exPlt[1]); impPlot.set_ylim(exPlt[2], exPlt[3])
-            odpPlot.set_xlim(exPlt[0], exPlt[1]); odpPlot.set_ylim(exPlt[2], exPlt[3])
+            #impPlot.set_xlim(exPlt[0], exPlt[1]); impPlot.set_ylim(exPlt[2], exPlt[3])
+            #odpPlot.set_xlim(exPlt[0], exPlt[1]); odpPlot.set_ylim(exPlt[2], exPlt[3])
 
             printProgBar(i+1, len(gSets), prefix = '  Progress:', suffix = '')
 
@@ -153,7 +137,7 @@ def plotImp(wave, maxno=1, grid=10, filename="hexbin.pkl", points=[], odp=True, 
             a.set(adjustable='box-forced', aspect='equal')
             x0,x1 = a.get_xlim(); y0,y1 = a.get_ylim()
             a.set_aspect((x1-x0)/(y1-y0))
-            a.set_xticks([]); a.set_yticks([]); 
+            #a.set_xticks([]); a.set_yticks([]); 
 
         #plt.tight_layout()
 

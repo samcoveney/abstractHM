@@ -79,5 +79,6 @@ plt.show()
 
 MINMAXwave1 = emuls[0].minmax()
 
-ahm.plotImp(W, grid=15, maxno=maxno, NROY=True, NIMP=False, manualRange=MINMAXwave1, vmin=1.0, sims=False, odp=True)
+ahm.plotImp(W, grid=30, maxno=maxno, NROY=False, NIMP=True, manualRange=MINMAXwave1, vmin=1.0, sims=False, odp=True)
+#ahm.plotImp(W, grid=30, maxno=maxno, NROY=True, NIMP=False, manualRange=MINMAXwave1, vmin=1.0, sims=True, odp=True)
 
