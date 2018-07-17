@@ -79,8 +79,7 @@ def plotImp(wave, maxno=1, grid=10, filename="hexbin.pkl", points=[], odp=True, 
         ## plots simulation points colored by imp (no posterior variance since these are sim points)
         print("  Plotting simulations points coloured by implausibility...")
         if sims:
-            simPoints, Isim, mIsim = wave.simImp()
-            IsimMaxes = np.partition(Isim, -maxno)[:,-maxno] # NOTE: not for multivariate implausibility
+            simPoints, Y, IsimMaxes, pointsXnimp, pointsYnimp = wave.simImp()
             Temp = np.hstack([IsimMaxes[:,None], simPoints])
             Temp = Temp[(-Temp[:,0]).argsort()] # sort by Imp, lowest first...
             IsimMaxes, simPoints = Temp[:,0], Temp[:,1:]
@@ -159,7 +158,7 @@ def plotImp(wave, maxno=1, grid=10, filename="hexbin.pkl", points=[], odp=True, 
                 ax[pltRef[s[0]],pltRef[s[1]]].scatter(pointsX[:,s[0]], pointsX[:,s[1]], s=25, c='black')
         if len(points) == 2:
             print("  Plotting 'points' coloured by implausibility (assuming these points are simulation points...)")
-            pointsX, Isim, mIsim = wave.simImp(data = points)
+            pointsX, pointsY, IsimMaxes, pointsXnimp, pointsYnimp = wave.simImp()
             IsimMaxes = np.partition(Isim, -maxno)[:,-maxno] # NOTE: not for multivariate implausibility
             Temp = np.hstack([IsimMaxes[:,None], pointsX])
             Temp = Temp[(-Temp[:,0]).argsort()] # sort by Imp, lowest first...

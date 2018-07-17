@@ -7,7 +7,8 @@ import numpy as np
 class AbstractEmulator(ABC, object):
 
     def __init__(self, model):
-        AbstractEmulator.model = model
+        #AbstractEmulator.model = model
+        self.model = model
 
     @abstractmethod
     def data(self):
