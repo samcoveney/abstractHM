@@ -53,17 +53,18 @@ class Multivar:
 ## wave class
 class Wave:
     """Stores data for wave of HM search."""
-    def __init__(self, subwaves, cm, maxno=1, multivar=None, cmv=None, tests=[]):
+    def __init__(self, subwaves, cm, maxno=1, multivar=None, cmv=None, tests=None):
 
         self.subwaves, self.multivar = subwaves, multivar
         self.cm, self.maxno = cm, maxno 
         # appropriate cutoff for multivar emulator
-        self.cmv = chi2.isf(q=0.01, df=len(self.multivar.subwaves)) if cmv is None else cmv
-        self.I, self.mI, self.NROY, self.NROY_I = None, None, None, None
+        if self.multivar is not None:
+            self.cmv = chi2.isf(q=0.01, df=len(self.multivar.subwaves)) if cmv is None else cmv
+        self.TESTS, self.I, self.mI, self.NROY, self.NROY_I = None, None, None, None, None
 
-        if isinstance(tests, np.ndarray) and tests is not []:
+        if isinstance(tests, np.ndarray) and tests is not None:
             self.TESTS = tests.astype(np.float16)
-        else: print("ERROR: if not [], tests must be a numpy array")
+        else: print("ERROR: if given, tests must be a numpy array")
 
 
     ## pickle a list of relevant data
@@ -94,8 +95,8 @@ class Wave:
             I[:,o] = s.calcImp(TESTS, chunkSize = chunkSize)
 
         # calculate multivariate implausibility of collection of univariate emulators
-        if self.multivar is not None:
-            mI = self.multivar.calcImp(TESTS)
+        mI = self.multivar.calcImp(TESTS) if self.multivar is not None else None
+            
 
         return I, mI
 
@@ -107,10 +108,7 @@ class Wave:
         Imaxes = np.partition(I, -self.maxno)[:,-self.maxno]
 
         ## check cut-off, store indices of points matching condition
-        if self.multivar is None:
-            tA = (Imaxes < self.cm)
-        else:
-            tA = ((Imaxes < self.cm) & (mI < self.cmv))
+        tA = (Imaxes < self.cm) if self.multivar is None else ((Imaxes < self.cm) & (mI < self.cmv))
 
         NIMP = np.argwhere(tA)[:,0]
         IMP = np.argwhere(np.invert(tA))[:,0]

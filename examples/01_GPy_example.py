@@ -72,6 +72,7 @@ NUM = 50000
 tests = np.random.randn(NUM*2).reshape([NUM,2])
 
 W = ahm.Wave(subwaves = [subwave1, subwave2], cm=cutoff, multivar=MW, tests=tests)
+#W = ahm.Wave(subwaves = [subwave1, subwave2], cm=cutoff, tests=tests)
 
 if not(LOAD):
     W.findNROY()
