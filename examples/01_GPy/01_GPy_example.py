@@ -28,6 +28,7 @@ print(model1)
 #model.plot()
 #plt.show()
 
+
 # building GPy model 2
 # --------------------
 outputs2 = sim2(inputs)
@@ -35,6 +36,10 @@ kernel2 = g.kern.Matern52(input_dim=2, active_dims=[0,1])
 model2 = g.models.GPRegression(X = inputs, Y = outputs2[:, None], kernel = kernel2)
 model2.optimize_restarts(3)
 print(model2)
+
+
+np.savetxt("inputs.txt", inputs)
+np.savetxt("outputs.txt", np.hstack([outputs.reshape([-1,1]),outputs2.reshape([-1,1])]))
 
 
 # pass the model to the class wrapper for GPy
@@ -99,5 +104,5 @@ else:
 MINMAXwave1 = E1.minmax()
 
 #ahm.plotImp(W, grid=30, maxno=maxno, NROY=False, NIMP=True, manualRange=MINMAXwave1, vmin=1.0, sims=False, odp=True)
-ahm.plotImp(W, grid=30, maxno=maxno, NROY=True, NIMP=False, manualRange=MINMAXwave1, vmin=1.0, sims=True, odp=True)
+ahm.plotImp(W, grid=30, maxno=maxno, NROY=True, NIMP=False, manualRange=MINMAXwave1, vmin=1.0, sims=False, odp=True)
 

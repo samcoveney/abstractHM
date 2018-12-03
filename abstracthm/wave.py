@@ -63,7 +63,8 @@ class Wave:
         self.TESTS, self.I, self.mI, self.NROY, self.NROY_I = None, None, None, None, None
 
         if isinstance(tests, np.ndarray) and tests is not None:
-            self.TESTS = tests.astype(np.float16)
+            #self.TESTS = tests.astype(np.float16)
+            self.TESTS = tests
         else: print("ERROR: if given, tests must be a numpy array")
 
 
@@ -133,7 +134,7 @@ class Wave:
         self.NROY, self.NROY_I = self.TESTS[NIMP], self.I[NIMP]
         # remove non-implausible points from TESTS to save on storage
         self.TESTS, self.I = self.TESTS[IMP], self.I[IMP]
-        print("  NROY: only non-imp points, TESTS: now only imp points")
+        print("\n!!! WARNING !!! : NROY: only non-imp points, TESTS: now only imp points\n")
 
         return
 
