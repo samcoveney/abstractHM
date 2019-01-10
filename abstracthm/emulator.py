@@ -50,9 +50,36 @@ class GPyEmulator(AbstractEmulator):
         return m[:,0], v[:,0]
 
 
+# class for wrapping scikit learn model with separate mean and gp
+# ---------------------------------------------------------------
+class sclEmulator(AbstractEmulator):
+
+    def data(self):
+        # FIXME: since the gp is trained on the residuals, it is not the original data...
+        # x, y = self.model.gp.X_train_, self.model.gp.y_train_
+        x, y = self.model.X, self.model.Y
+        return x, y
+
+    def minmax(self):
+        x = self.model.X
+        minmax = {}
+        for i, xc in enumerate(x.T):
+            minmax[i] = [np.min(xc), np.max(xc)]
+        return minmax
+
+    def active(self):
+        # I believe all input dimensions are used
+        return np.arange(self.model.X.shape[1])
+
+    def posterior(self, x):
+        m, s = self.model.gp.predict(x, return_std=True)
+        m = m + self.model.mean.predict(x)
+        return m, s**2
+
+
 # class for wrapping table as if it were an emulator
 # --------------------------------------------------
-class TableEmulator(AbstractEmulator):
+class TableEmulator:
 
     def data(self):
         x, y = self.model.X, self.model.Y
