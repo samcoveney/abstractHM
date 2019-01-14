@@ -112,8 +112,8 @@ def plotImp(wave, maxno=1, grid=10, filename="hexbin.pkl", points=[], odp=True, 
             # odp subplot - bin points if Imax < cutoff, 'reduce' function is np.mean() - result gives fraciton of points satisfying Imax < cutoff
             # FIXME: extent keyword here needs to be generalized
             if sims == True:
-                #im_odp = odpPlot.scatter(simPoints[:,s[0]], simPoints[:,s[1]], s=25, c=IsimMaxes, cmap=colormap(plt.get_cmap('nipy_spectral'),0.60,0.825), vmin=vmin, vmax=wave.cm if vmax is None else vmax)#, edgecolor='black')
-                im_odp = odpPlot.scatter(simPoints[:,s[0]], simPoints[:,s[1]], s=25, c=IsimMaxes, cmap=colormap(plt.get_cmap('hot'),1.0,0.0), vmin=vmin, vmax=wave.cm if vmax is None else vmax)#, edgecolor='black')
+                im_odp = odpPlot.scatter(simPoints[:,s[0]], simPoints[:,s[1]], s=25, c=IsimMaxes, cmap=colormap(plt.get_cmap('nipy_spectral'),0.60,0.825), vmin=vmin, vmax=wave.cm if vmax is None else vmax)#, edgecolor='black')
+                #im_odp = odpPlot.scatter(simPoints[:,s[0]], simPoints[:,s[1]], s=25, c=IsimMaxes, cmap=colormap(plt.get_cmap('hot'),1.0,0.0), vmin=vmin, vmax=wave.cm if vmax is None else vmax)#, edgecolor='black')
             if odp == True and sims == False:
                 im_odp = odpPlot.hexbin(
                   T[:,s[0]], T[:,s[1]], C = Imaxes<wave.cm,
@@ -131,7 +131,7 @@ def plotImp(wave, maxno=1, grid=10, filename="hexbin.pkl", points=[], odp=True, 
 
         ## can set labels on diagaonal
         for i, a in enumerate(active):
-            ax[a,a].set(adjustable='box-forced', aspect='equal')
+            ax[a,a].set(adjustable='box', aspect='equal')
             if names is not None:
                 ax[a,a].text(.5,.5,names[i], horizontalalignment='center', transform=ax[a,a].transAxes)        
  # + "\n"

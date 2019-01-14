@@ -48,8 +48,9 @@ Ydata = np.loadtxt('outputs_11_693.txt', dtype=float)
 E1 = AHM0
 E2 = AHM1
 
-zs = Ydata[0]
-vs = 0.01*np.array([ np.ptp(Ydata[0]) , np.ptp(Ydata[1]) ])
+trueX = Xdata[0].reshape([1,-1])
+zs = Ydata[0,[0,1]]
+vs = 0.01*np.array([ np.ptp(Ydata[:,0]) , np.ptp(Ydata[:,1]) ])
 cutoff = 3.0
 maxno = 1
 waveno = 1
@@ -90,6 +91,7 @@ else:
 
 # plotting
 MINMAXwave1 = E1.minmax()
-ahm.plotImp(W, grid=12, maxno=maxno, NROY=True, NIMP=False, manualRange=MINMAXwave1, vmin=1.0, sims=False, odp=True)
+#ahm.plotImp(W, grid=12, maxno=maxno, NROY=True, NIMP=False, manualRange=MINMAXwave1, vmin=1.0, sims=False, odp=True, points = [trueX])
+ahm.plotImp(W, grid=12, maxno=maxno, NROY=True, NIMP=False, manualRange=MINMAXwave1, vmin=1.0, sims=True, odp=False, points = [trueX])
 
 
