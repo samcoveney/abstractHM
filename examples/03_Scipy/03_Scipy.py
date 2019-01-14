@@ -67,7 +67,7 @@ print(subwave2.name)
 
 
 # some test points
-NUM = 100000 # 1 hundred thousand
+NUM = 10000 # 1 hundred thousand
 minmax = AHM0.minmax()
 tests = dp.centered_lhs(dp.lhd_matrix(NUM,len(minmax)))  # create tests (unit hypercube)
 tests = tests.T
@@ -92,6 +92,7 @@ else:
 # plotting
 MINMAXwave1 = E1.minmax()
 #ahm.plotImp(W, grid=12, maxno=maxno, NROY=True, NIMP=False, manualRange=MINMAXwave1, vmin=1.0, sims=False, odp=True, points = [trueX])
-ahm.plotImp(W, grid=12, maxno=maxno, NROY=True, NIMP=False, manualRange=MINMAXwave1, vmin=1.0, sims=True, odp=False, points = [trueX])
+#ahm.plotImp(W, grid=12, maxno=maxno, NROY=True, NIMP=False, manualRange=MINMAXwave1, vmin=1.0, sims=True, odp=False, points = [trueX])
+ahm.plotImp(W, grid=12, maxno=maxno, NROY=True, NIMP=True, manualRange=MINMAXwave1, vmin=1.0, sims=True, odp=True, points = trueX, colorbar=False)
 
 

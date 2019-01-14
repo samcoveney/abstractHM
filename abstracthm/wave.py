@@ -89,7 +89,7 @@ class Wave:
         P = TESTS.shape[0]
         chunkNum = int(np.ceil(P / chunkSize)) if P > chunkSize else 1
         print("= Calculating Implausibilities of", P, "points =")
-        print("  Using", chunkNum, "chunks of", chunkSize, "=")
+        print("  Using", chunkNum, "chunks of", chunkSize)
 
         I  = np.zeros((TESTS.shape[0],len(self.subwaves)), dtype=np.float16)
         for o, s in enumerate(self.subwaves):
